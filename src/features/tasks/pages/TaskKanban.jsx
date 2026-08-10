@@ -76,11 +76,11 @@ export default function TaskKanban() {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
       {/* Header */}
-      <div className="px-8 py-6 border-b border-slate-200">
-        <div className="flex items-center justify-between">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b border-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900">Task Kanban Board</h1>
-            <p className="text-muted-foreground mt-1">Drag tasks between columns to update their status</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900">Task Kanban Board</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">Drag tasks between columns to update their status</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -106,9 +106,9 @@ export default function TaskKanban() {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto p-8">
+      <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 min-w-min">
+          <div className="flex gap-4 sm:gap-6 min-w-min snap-x snap-mandatory">
             {STATUSES.map((status) => (
               <KanbanColumn
                 key={status}

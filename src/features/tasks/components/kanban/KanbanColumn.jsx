@@ -33,7 +33,7 @@ export default function KanbanColumn({ status, tasks = [], onTaskClick }) {
   const Icon = config.icon;
 
   return (
-    <div className="flex flex-col w-full max-w-sm">
+    <div className="flex flex-col w-[78vw] max-w-[280px] flex-shrink-0 snap-start sm:w-full sm:max-w-sm">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className="w-5 h-5" />

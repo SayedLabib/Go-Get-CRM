@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { MessagesSquare, Plus, Send, Loader2 } from 'lucide-react';
+import { MessagesSquare, Plus, Send, Loader2, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/permissions';
@@ -101,7 +101,7 @@ export default function Conversations() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100%-80px)]">
-        <Card className="border-none shadow-lg overflow-y-auto md:col-span-1">
+        <Card className={cn('border-none shadow-lg overflow-y-auto md:col-span-1', selectedId && 'hidden md:block')}>
           <CardContent className="p-2">
             {composing && (
               <div className="p-3 mb-2 border rounded-lg bg-slate-50 space-y-2">
@@ -158,14 +158,23 @@ export default function Conversations() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg md:col-span-2 flex flex-col">
+        <Card className={cn('border-none shadow-lg md:col-span-2 flex flex-col', !selectedId && 'hidden md:flex')}>
           {!selected ? (
             <CardContent className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
               Select a conversation
             </CardContent>
           ) : (
             <>
-              <div className="p-4 border-b font-semibold text-navy">{displayTitle(selected)}</div>
+              <div className="p-4 border-b font-semibold text-navy flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="md:hidden p-1 -ml-1 rounded hover:bg-slate-100 text-slate-500 flex-shrink-0"
+                  aria-label="Back to conversations"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="truncate">{displayTitle(selected)}</span>
+              </div>
               <CardContent className="flex-1 overflow-y-auto space-y-3 py-4">
                 {messages.map((m) => (
                   <div

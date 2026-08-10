@@ -91,7 +91,7 @@ export default function Step4Services({ formData, updateFormData }) {
       {/* Lead Info */}
       <div className="border-t pt-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">Lead & Assignment</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Lead Source</Label>
             <Select value={formData.lead_source || ''} onValueChange={(value) => updateFormData({ lead_source: value })}>

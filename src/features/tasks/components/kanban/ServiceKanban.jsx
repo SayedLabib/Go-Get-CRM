@@ -80,7 +80,7 @@ export default function ServiceKanban() {
   return (
     <div className="w-full overflow-x-auto">
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 min-w-full p-6 bg-gradient-to-b from-slate-50 to-slate-100 rounded-xl">
+        <div className="flex gap-4 sm:gap-6 min-w-full p-4 sm:p-6 bg-gradient-to-b from-slate-50 to-slate-100 rounded-xl snap-x snap-mandatory">
           {stages.map((stage) => {
             const stageServices = getServicesByStatus(stage.status_name);
             return (
@@ -89,7 +89,7 @@ export default function ServiceKanban() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-shrink-0 w-80 rounded-lg p-4 transition-all ${
+                    className={`flex-shrink-0 snap-start w-[78vw] max-w-[280px] sm:w-80 rounded-lg p-4 transition-all ${
                       snapshot.isDraggingOver ? 'bg-blue-50 shadow-lg' : 'bg-white shadow-md'
                     }`}
                   >

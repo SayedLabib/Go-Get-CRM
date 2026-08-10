@@ -32,7 +32,7 @@ export default function AppointmentDetailsModal({ appointment, onClose, clients 
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
               <div>

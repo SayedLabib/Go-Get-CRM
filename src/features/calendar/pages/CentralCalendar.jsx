@@ -217,7 +217,7 @@ export default function CentralCalendar() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] mx-auto">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-navy mb-2">Calendar & Deadlines</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-navy mb-2">Calendar & Deadlines</h1>
           <p className="text-muted-foreground">Drag tasks to reschedule, or click a date/task/appointment for full details</p>
         </div>
         <div className="flex gap-2">
@@ -296,18 +296,18 @@ export default function CentralCalendar() {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                <div className="min-w-[640px]">
+                <div className="min-w-[560px] sm:min-w-[640px]">
                 {/* Day headers */}
-                <div className="grid grid-cols-7 gap-2 mb-4">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="text-center font-bold text-sm text-navy py-2">
+                    <div key={day} className="text-center font-bold text-xs sm:text-sm text-navy py-2">
                       {day}
                     </div>
                   ))}
                 </div>
 
                 {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map(day => {
                     const { tasks: dayTasks, appointments: dayAppointments, filings: dayFilings } = getItemsForDate(day);
                     const isCurrentMonth = isSameMonth(day, currentDate);
@@ -324,7 +324,7 @@ export default function CentralCalendar() {
                             {...provided.droppableProps}
                             onClick={() => setSelectedDate(day)}
                             className={cn(
-                              'min-h-[120px] p-2 rounded-lg border-2 transition-all',
+                              'min-h-[70px] sm:min-h-[90px] md:min-h-[120px] p-1 sm:p-2 rounded-lg border-2 transition-all',
                               !isCurrentMonth && 'bg-slate-50 border-slate-200',
                               isCurrentMonth && !isSelected && 'bg-white border-slate-200 hover:border-blue-400',
                               isSelected && 'border-blue-500 bg-blue-50',

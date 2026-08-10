@@ -47,7 +47,7 @@ export default function Step3BusinessDetails({ formData, updateFormData }) {
           {/* Tax Numbers */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">CRA & Registration Numbers</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Business Number (BN)</Label>
                 <Input
@@ -121,7 +121,7 @@ export default function Step3BusinessDetails({ formData, updateFormData }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
                 <Label>Incorporation Date</Label>
                 <Input
@@ -136,7 +136,7 @@ export default function Step3BusinessDetails({ formData, updateFormData }) {
           {/* Employees */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">Employees & Payroll</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Number of Employees</Label>
                 <Input
@@ -168,7 +168,7 @@ export default function Step3BusinessDetails({ formData, updateFormData }) {
       {/* Revenue */}
       <div className="border-t pt-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">Financial Info</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Annual Revenue (Estimate)</Label>
             <Select value={formData.annual_revenue} onValueChange={(value) => updateFormData({ annual_revenue: value })}>

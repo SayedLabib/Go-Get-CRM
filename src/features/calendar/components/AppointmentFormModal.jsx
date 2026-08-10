@@ -74,7 +74,7 @@ export default function AppointmentFormModal({ appointment, onClose, currentUser
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Type</Label>
               <Select value={formData.appointment_type} onValueChange={(value) => setFormData({ ...formData, appointment_type: value })}>
@@ -110,7 +110,7 @@ export default function AppointmentFormModal({ appointment, onClose, currentUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Start Time *</Label>
               <Input

@@ -69,7 +69,7 @@ export default function TaskSuggestions({ taskTitle, taskDescription, clientCont
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-semibold mb-2 text-sm">Recommended Priority</h4>
                 <Badge className="bg-blue-100 text-blue-800">
