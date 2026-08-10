@@ -9,17 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function InvoiceGenerator({ clientId, serviceFilingId, onSuccess }) {
+export default function InvoiceGenerator({ clientId, serviceFilingId, invoice, onSuccess }) {
   const queryClient = useQueryClient();
-  const [lineItems, setLineItems] = useState([
-    { description: '', quantity: 1, rate: 0, amount: 0 }
-  ]);
+  const isEditing = !!invoice;
+  const [lineItems, setLineItems] = useState(
+    invoice?.line_items?.length ? invoice.line_items : [{ description: '', quantity: 1, rate: 0, amount: 0 }]
+  );
   const [formData, setFormData] = useState({
-    invoice_date: new Date().toISOString().split('T')[0],
-    due_date: '',
-    tax_rate: 0.05,
-    terms: 'Net 30',
-    notes: ''
+    invoice_date: invoice?.invoice_date || new Date().toISOString().split('T')[0],
+    due_date: invoice?.due_date || '',
+    tax_rate: invoice?.tax_rate ?? 0.05,
+    terms: invoice?.terms || 'Net 30',
+    notes: invoice?.notes || ''
   });
 
   const { data: client } = useQuery({
@@ -36,9 +37,12 @@ export default function InvoiceGenerator({ clientId, serviceFilingId, onSuccess 
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async (invoiceData) => {
+      if (isEditing) {
+        return api.entities.Invoice.update(invoice.id, invoiceData);
+      }
       const invoiceCount = await api.entities.Invoice.list();
       const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount.length + 1).padStart(4, '0')}`;
-      
+
       return api.entities.Invoice.create({
         ...invoiceData,
         invoice_number: invoiceNumber
@@ -46,11 +50,11 @@ export default function InvoiceGenerator({ clientId, serviceFilingId, onSuccess 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice generated successfully');
+      toast.success(isEditing ? 'Invoice updated successfully' : 'Invoice generated successfully');
       onSuccess?.();
     },
     onError: () => {
-      toast.error('Failed to generate invoice');
+      toast.error(isEditing ? 'Failed to update invoice' : 'Failed to generate invoice');
     }
   });
 
@@ -98,10 +102,11 @@ export default function InvoiceGenerator({ clientId, serviceFilingId, onSuccess 
       tax_rate: formData.tax_rate,
       tax_amount: taxAmount,
       total_amount: total,
-      balance_due: total,
-      payment_status: 'Pending',
       terms: formData.terms,
-      notes: formData.notes
+      notes: formData.notes,
+      ...(isEditing
+        ? { balance_due: total - (invoice.amount_paid || 0) }
+        : { balance_due: total, payment_status: 'Pending' }),
     };
 
     generateInvoiceMutation.mutate(invoiceData);
@@ -291,10 +296,10 @@ export default function InvoiceGenerator({ clientId, serviceFilingId, onSuccess 
         {generateInvoiceMutation.isPending ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Generating...
+            {isEditing ? 'Saving...' : 'Generating...'}
           </>
         ) : (
-          'Generate Invoice'
+          isEditing ? 'Save Changes' : 'Generate Invoice'
         )}
       </Button>
     </div>

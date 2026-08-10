@@ -6,7 +6,7 @@ import { createPageUrl } from '@/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, Download, Calendar, Clock, DollarSign, FileSpreadsheet } from 'lucide-react';
+import { FileText, Calendar, Clock, DollarSign, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MonthlyTaskReports() {
@@ -156,11 +156,11 @@ export default function MonthlyTaskReports() {
       });
 
       if (response.data.pdf_url) {
-        const link = document.createElement('a');
-        link.href = response.data.pdf_url;
-        link.download = `task-report-${selectedMonth}.pdf`;
-        link.click();
-        toast.success('PDF report downloaded');
+        // Opens in a new tab rather than forcing a download — matches every
+        // other report/invoice PDF in the app; download from the browser's
+        // viewer if actually needed after reviewing it.
+        window.open(response.data.pdf_url, '_blank');
+        toast.success('PDF report generated');
       }
     } catch (error) {
       toast.error('Failed to generate PDF: ' + error.message);

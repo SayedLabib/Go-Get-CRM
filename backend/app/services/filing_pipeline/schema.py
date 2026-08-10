@@ -8,6 +8,7 @@ FIELDS = {
     "current_stage": (S, {"default": "Client Data Collection"}),
     "stage_history": J,
     "cra_confirmation_number": S,
+    "final_confirmation_date": S,
 }
 REQUIRED = []
 EXCLUDED = set()

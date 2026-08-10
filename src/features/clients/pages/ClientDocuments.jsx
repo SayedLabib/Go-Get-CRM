@@ -252,6 +252,7 @@ export default function ClientDocuments() {
                       <DocumentCard
                         key={doc.id}
                         document={doc}
+                        onView={(document) => window.open(document.file_url, '_blank')}
                         onDelete={handleDelete}
                       />
                     ))}

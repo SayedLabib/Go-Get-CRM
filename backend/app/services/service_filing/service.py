@@ -289,6 +289,22 @@ async def after_update(db, user, obj, snapshot, body, ctx):
     old_status = snapshot["old_status"]
 
     if old_status != obj.status:
+        # filed_date is server-owned, same fix as Task.completed_date: stamp
+        # it the first time a filing genuinely reaches Filed/Completed, clear
+        # it if reopened back out of that range. Moving between Filed and
+        # Completed (both already "filed") deliberately leaves it untouched —
+        # it answers "when was this actually filed", not "when did status
+        # last change".
+        newly_filed = old_status not in ("Filed", "Completed") and obj.status in ("Filed", "Completed")
+        reopened = old_status in ("Filed", "Completed") and obj.status not in ("Filed", "Completed")
+        if newly_filed or reopened:
+            obj.filed_date = datetime.date.today().isoformat() if newly_filed else None
+            try:
+                await db.commit()
+                await db.refresh(obj)
+            except Exception:
+                logger.exception("Failed to persist filed_date for filing %s", obj.id)
+
         try:
             await notify_firm(
                 db=db,

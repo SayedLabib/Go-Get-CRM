@@ -26,6 +26,7 @@ import LogCommunicationModal from '@/features/clients/components/detail/LogCommu
 import RecurringFollowUpModal from '@/features/clients/components/board/RecurringFollowUpModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import InvoiceGenerator from '@/features/invoices/components/InvoiceGenerator';
+import InvoiceCard from '@/features/invoices/components/InvoiceCard';
 import TaskFormModal from '@/features/tasks/components/TaskFormModal';
 import DocumentUploader from '@/features/documents/components/DocumentUploader';
 import DocumentCard from '@/features/documents/components/DocumentCard';
@@ -101,6 +102,9 @@ export default function ClientProfile() {
   const [editingFiling, setEditingFiling] = useState(null);
   const [showLogCommunication, setShowLogCommunication] = useState(false);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [payingInvoice, setPayingInvoice] = useState(null);
+  const [paymentData, setPaymentData] = useState({ amount: 0, payment_date: new Date().toISOString().split('T')[0], payment_method: 'Bank Transfer' });
   const [messageText, setMessageText] = useState('');
 
   const queryClient = useQueryClient();
@@ -115,6 +119,35 @@ export default function ClientProfile() {
   const { data: services = [] } = useQuery({ queryKey: ['services'], queryFn: () => api.entities.Service.list() });
   const { data: serviceFilings = [] } = useQuery({ queryKey: ['serviceFilings', selectedClientId], queryFn: () => api.entities.ServiceFiling.filter({ client_id: selectedClientId }), enabled: !!selectedClientId });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices', selectedClientId], queryFn: () => api.entities.Invoice.filter({ client_id: selectedClientId }), enabled: !!selectedClientId });
+  const viewInvoiceMutation = useMutation({
+    mutationFn: (invoice) => api.functions.invoke('generateInvoicePDF', { invoice_id: invoice.id }),
+    onSuccess: (response) => {
+      if (response?.data?.pdfUrl) window.open(response.data.pdfUrl, '_blank');
+    },
+    onError: (error) => toast.error('Failed to generate invoice PDF: ' + error.message),
+  });
+  const recordPaymentMutation = useMutation({
+    mutationFn: (data) => {
+      const newAmountPaid = (payingInvoice.amount_paid || 0) + parseFloat(data.amount);
+      const newBalance = payingInvoice.total_amount - newAmountPaid;
+      let newStatus = 'Pending';
+      if (newBalance <= 0) newStatus = 'Paid';
+      else if (newAmountPaid > 0) newStatus = 'Partial';
+      return api.entities.Invoice.update(payingInvoice.id, {
+        amount_paid: newAmountPaid,
+        balance_due: newBalance,
+        payment_status: newStatus,
+        payment_method: data.payment_method,
+        payment_date: data.payment_date,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', selectedClientId] });
+      setPayingInvoice(null);
+      toast.success('Payment recorded successfully');
+    },
+    onError: (error) => toast.error('Failed to record payment: ' + error.message),
+  });
   const { data: documents = [] } = useQuery({ queryKey: ['documents', selectedClientId], queryFn: () => api.entities.Document.filter({ client_id: selectedClientId }), enabled: !!selectedClientId });
   const [showUploadDocument, setShowUploadDocument] = useState(false);
   const deleteDocumentMutation = useMutation({
@@ -980,7 +1013,12 @@ export default function ClientProfile() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {documents.map((doc) => (
-                    <DocumentCard key={doc.id} document={doc} onDelete={handleDeleteDocument} />
+                    <DocumentCard
+                      key={doc.id}
+                      document={doc}
+                      onView={(document) => window.open(document.file_url, '_blank')}
+                      onDelete={handleDeleteDocument}
+                    />
                   ))}
                 </div>
               )}
@@ -1245,12 +1283,24 @@ export default function ClientProfile() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {invoices.length === 0 ? <p className="text-center text-muted-foreground py-8">No invoices</p> : invoices.map(inv => (
-                  <div key={inv.id} className="p-4 border rounded-lg hover:bg-slate-50 transition-colors mb-2 flex items-center justify-between">
-                    <div><h4 className="font-semibold text-navy">{inv.invoice_number}</h4><p className="text-sm text-muted-foreground">{new Date(inv.invoice_date).toLocaleDateString()}</p></div>
-                    <div className="text-right"><p className="font-bold text-navy">${inv.total_amount?.toFixed(2)}</p><Badge className={inv.payment_status === 'Paid' ? 'bg-green-500/10 text-green-700' : inv.payment_status === 'Partial' ? 'bg-yellow-500/10 text-yellow-700' : 'bg-red-500/10 text-red-700'}>{inv.payment_status}</Badge></div>
+                {invoices.length === 0 ? <p className="text-center text-muted-foreground py-8">No invoices</p> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {invoices.map(inv => (
+                      <InvoiceCard
+                        key={inv.id}
+                        invoice={inv}
+                        client={selectedClient}
+                        onView={(invoice) => viewInvoiceMutation.mutate(invoice)}
+                        viewing={viewInvoiceMutation.isPending && viewInvoiceMutation.variables?.id === inv.id}
+                        onEdit={(invoice) => setEditingInvoice(invoice)}
+                        onRecordPayment={(invoice) => {
+                          setPayingInvoice(invoice);
+                          setPaymentData({ amount: invoice.balance_due, payment_date: new Date().toISOString().split('T')[0], payment_method: 'Bank Transfer' });
+                        }}
+                      />
+                    ))}
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1259,6 +1309,81 @@ export default function ClientProfile() {
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Add Invoice</DialogTitle></DialogHeader>
               <InvoiceGenerator clientId={selectedClientId} onSuccess={() => setShowAddInvoice(false)} />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!editingInvoice} onOpenChange={(open) => !open && setEditingInvoice(null)}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
+              {editingInvoice && (
+                <InvoiceGenerator
+                  invoice={editingInvoice}
+                  clientId={selectedClientId}
+                  serviceFilingId={editingInvoice.service_filing_id}
+                  onSuccess={() => setEditingInvoice(null)}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!payingInvoice} onOpenChange={(open) => !open && setPayingInvoice(null)}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+              {payingInvoice && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">Invoice</p>
+                    <p className="font-bold text-navy">{payingInvoice.invoice_number}</p>
+                    <p className="text-sm mt-2">Balance Due: <span className="font-bold text-red">${payingInvoice.balance_due?.toFixed(2)}</span></p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cp_payment_amount">Payment Amount *</Label>
+                    <Input
+                      id="cp_payment_amount"
+                      type="number"
+                      value={paymentData.amount}
+                      onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
+                      step="0.01"
+                      min="0"
+                      max={payingInvoice.balance_due}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cp_payment_date">Payment Date *</Label>
+                    <Input
+                      id="cp_payment_date"
+                      type="date"
+                      value={paymentData.payment_date}
+                      onChange={(e) => setPaymentData({ ...paymentData, payment_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cp_payment_method">Payment Method *</Label>
+                    <select
+                      id="cp_payment_method"
+                      value={paymentData.payment_method}
+                      onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
+                      className="w-full px-3 py-2 border border-border rounded-lg"
+                    >
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="E-Transfer">E-Transfer</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Cash">Cash</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      className="flex-1"
+                      disabled={recordPaymentMutation.isPending}
+                      onClick={() => recordPaymentMutation.mutate(paymentData)}
+                    >
+                      {recordPaymentMutation.isPending ? 'Saving...' : 'Record Payment'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setPayingInvoice(null)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </TabsContent>

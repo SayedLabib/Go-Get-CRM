@@ -4,7 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...database import get_db
 from ...deps import get_current_user
 from ...adapters.llm import invoke_llm_json
-from ...reports import render_monthly_performance_report, render_monthly_task_report
+from ...models import MODELS
+from ...reports import render_invoice_pdf, render_monthly_performance_report, render_monthly_task_report
+from ...serialization import serialize
+from ..company.service import get_firm, serialize_profile
 from . import service
 
 router = APIRouter(prefix="/api/functions", tags=["functions"])
@@ -58,12 +61,26 @@ async def invoke_function(
         year = int(body.get("year"))
         month = int(body.get("month"))
         metrics = await service.generate_monthly_report(db, year, month)
-        pdf_url = render_monthly_performance_report(metrics, year, month)
+        firm = serialize_profile(await get_firm(db))
+        pdf_url = render_monthly_performance_report(metrics, year, month, firm)
         return {"data": {**metrics, "pdfUrl": pdf_url}}
 
     if name == "generateMonthlyTaskReport":
-        pdf_url = render_monthly_task_report(body)
+        firm = serialize_profile(await get_firm(db))
+        pdf_url = render_monthly_task_report(body, firm)
         return {"data": {"pdf_url": pdf_url}}
+
+    if name == "generateInvoicePDF":
+        invoice_id = body.get("invoice_id")
+        invoice_obj = await db.get(MODELS["Invoice"], invoice_id)
+        if invoice_obj is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
+        client_obj = await db.get(MODELS["Client"], invoice_obj.client_id) if invoice_obj.client_id else None
+        invoice = serialize("Invoice", invoice_obj)
+        client = serialize("Client", client_obj) if client_obj else {}
+        firm = serialize_profile(await get_firm(db))
+        pdf_url = render_invoice_pdf(invoice, client, firm)
+        return {"data": {"pdfUrl": pdf_url}}
 
     if name == "sendDocumentEmail":
         await service.send_document_email(db, user, body)

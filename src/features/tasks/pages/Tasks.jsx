@@ -7,34 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TaskFormModal from '@/features/tasks/components/TaskFormModal';
 import TaskKanban from '@/features/tasks/components/kanban/TaskKanban';
-import { CheckCircle2, Clock, AlertCircle, TrendingUp, Users, LayoutGrid, Search, Mail, RotateCcw, Building2 } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, TrendingUp, Users, LayoutGrid, Search, Mail, Building2 } from 'lucide-react';
 import { calculateUrgencyScore, getUrgencyLevel, getUrgencyIcon, getUrgencyExplanation } from '@/features/tasks/components/UrgencyScoreCalculator';
+import TaskFlags from '@/features/tasks/components/TaskFlags';
+import TaskStatusUpdateModal from '@/features/tasks/components/TaskStatusUpdateModal';
 import { MANAGERIAL_ROLES } from '@/lib/permissions';
 import { Link } from 'react-router-dom';
-
-function TaskFlags({ task }) {
-  const rescheduled = task.extra?.overdue_reschedule_history?.length > 0
-    || task.overdue_reschedule_history?.length > 0;
-  const emailed = task.extra?.client_emailed || task.client_emailed;
-  if (!rescheduled && !emailed) return null;
-  return (
-    <>
-      {rescheduled && (
-        <span
-          className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
-          title="This task was automatically rescheduled after going overdue"
-        >
-          <RotateCcw className="w-3 h-3" />Auto-Rescheduled
-        </span>
-      )}
-      {emailed && (
-        <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-          <Mail className="w-3 h-3" />Emailed
-        </span>
-      )}
-    </>
-  );
-}
 
 export default function Tasks() {
   const queryClient = useQueryClient();
@@ -42,6 +20,7 @@ export default function Tasks() {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [statusUpdateTask, setStatusUpdateTask] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
 
@@ -194,6 +173,15 @@ export default function Tasks() {
     if (!isManagerial && task.assigned_to !== user?.email) {
       return;
     }
+    // Routine status work opens the focused status/history modal, not the
+    // full create/edit form — "Full Edit" inside it reaches handleFullEdit
+    // below for the rare case that genuinely needs to touch service
+    // link/frequency/assignment/dates.
+    setStatusUpdateTask(task);
+  };
+
+  const handleFullEdit = (task) => {
+    setStatusUpdateTask(null);
     setEditingTask(task);
     setShowTaskModal(true);
   };
@@ -563,7 +551,12 @@ export default function Tasks() {
                             {expandedMember === row.email && (
                               <div className="border-t bg-slate-50/50 p-3 space-y-2">
                                 {row.tasks.map((task) => (
-                                  <div key={task.id} className="flex items-center justify-between gap-3 p-2 bg-white border rounded text-sm">
+                                  <button
+                                    type="button"
+                                    key={task.id}
+                                    onClick={() => setStatusUpdateTask(task)}
+                                    className="w-full flex items-center justify-between gap-3 p-2 bg-white border rounded text-sm hover:shadow-sm hover:border-primary/40 transition-all text-left"
+                                  >
                                     <span className="truncate flex-1">{task.title}</span>
                                     <Badge className={getStatusColor(task.status)} variant="outline">{task.status}</Badge>
                                     {task.due_date && (
@@ -571,7 +564,7 @@ export default function Tasks() {
                                         {new Date(task.due_date).toLocaleDateString()}
                                       </span>
                                     )}
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -588,7 +581,17 @@ export default function Tasks() {
 
       </Tabs>
 
-      {/* Task Modal */}
+      {/* Focused status-update modal — the default click target */}
+      {statusUpdateTask && (
+        <TaskStatusUpdateModal
+          task={statusUpdateTask}
+          currentUser={user}
+          onClose={() => setStatusUpdateTask(null)}
+          onFullEdit={handleFullEdit}
+        />
+      )}
+
+      {/* Full create/edit form — reached via "Full Edit" or task creation elsewhere */}
       {showTaskModal && (
         <TaskFormModal
           task={editingTask}

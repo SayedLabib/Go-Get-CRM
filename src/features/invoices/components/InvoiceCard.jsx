@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Eye, Download, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { FileText, Eye, Pencil, DollarSign, Calendar, AlertCircle, Loader2 } from 'lucide-react';
 
 const statusColors = {
   'Pending': 'bg-yellow/10 text-yellow-dark border-yellow/20',
@@ -11,7 +11,7 @@ const statusColors = {
   'Overdue': 'bg-red/10 text-red border-red/20'
 };
 
-export default function InvoiceCard({ invoice, client, onView, onRecordPayment }) {
+export default function InvoiceCard({ invoice, client, onView, onEdit, onRecordPayment, viewing }) {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -93,21 +93,36 @@ export default function InvoiceCard({ invoice, client, onView, onRecordPayment }
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-3 border-t">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onView(invoice)}
-            className="flex-1"
-          >
-            <Eye className="w-3 h-3 mr-1" />
-            View
-          </Button>
+        <div className="space-y-2 pt-3 border-t">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onView?.(invoice)}
+              disabled={viewing}
+              className="flex-1"
+            >
+              {viewing ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <Eye className="w-3 h-3 mr-1" />
+              )}
+              View Invoice
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit?.(invoice)}
+              aria-label="Edit invoice"
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+          </div>
           {invoice.payment_status !== 'Paid' && (
             <Button
               size="sm"
               onClick={() => onRecordPayment(invoice)}
-              className="flex-1 bg-yellow text-navy hover:bg-yellow-dark"
+              className="w-full bg-yellow text-navy hover:bg-yellow-dark"
             >
               <DollarSign className="w-3 h-3 mr-1" />
               Record Payment

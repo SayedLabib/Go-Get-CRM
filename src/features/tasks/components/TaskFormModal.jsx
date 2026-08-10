@@ -7,14 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import TaskTemplateSelector from './TaskTemplateSelector';
 import TaskCommentSection from '@/features/tasks/components/comments/TaskCommentSection';
 import { toast } from 'sonner';
 import { MANAGERIAL_ROLES } from '@/lib/permissions';
-
-const SERVICE_FREQUENCY_OPTIONS = ['Weekly', 'Monthly', 'Quarterly', 'Half Yearly', 'Annually'];
 
 export default function TaskFormModal({ task, onClose, currentUser }) {
   const queryClient = useQueryClient();
@@ -53,18 +50,6 @@ export default function TaskFormModal({ task, onClose, currentUser }) {
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: () => api.entities.Client.list()
-  });
-
-  const { data: services = [] } = useQuery({
-    queryKey: ['services'],
-    queryFn: () => api.entities.Service.list(),
-    retry: false,
-  });
-
-  const { data: packages = [] } = useQuery({
-    queryKey: ['packages'],
-    queryFn: () => api.entities.Package.list(),
-    retry: false,
   });
 
   // A task auto-created from "Add Service" links to that specific filing
@@ -117,24 +102,6 @@ export default function TaskFormModal({ task, onClose, currentUser }) {
     saveMutation.mutate(dataToSave);
   };
 
-  // A task links to at most one of Service/Package — encode the pick as
-  // "service:<id>" / "package:<id>" in a single dropdown, split back into
-  // the two separate fields on change.
-  const linkedValue = formData.linked_service_id
-    ? `service:${formData.linked_service_id}`
-    : formData.linked_package_id
-    ? `package:${formData.linked_package_id}`
-    : '';
-
-  const handleLinkedChange = (value) => {
-    const [type, id] = value.split(':');
-    setFormData({
-      ...formData,
-      linked_service_id: type === 'service' ? id : '',
-      linked_package_id: type === 'package' ? id : '',
-    });
-  };
-
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -150,17 +117,6 @@ export default function TaskFormModal({ task, onClose, currentUser }) {
 
           <TabsContent value="details" className="mt-4">
             <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Template selector — admin/manager only */}
-              {!isUserRole && (
-                <div>
-                  <Label className="mb-2 block">Quick Select from Templates</Label>
-                  <TaskTemplateSelector
-                    onSelect={(templateData) => setFormData({ ...formData, ...templateData })}
-                    assignedTo={formData.assigned_to}
-                  />
-                </div>
-              )}
 
               <div>
                 <Label htmlFor="title">Task Title {!isUserRole && '*'}</Label>
@@ -297,72 +253,13 @@ export default function TaskFormModal({ task, onClose, currentUser }) {
                   </div>
 
                   <div>
-                    <Label htmlFor="linked_service">Link to Service / Package (Optional)</Label>
-                    <Select value={linkedValue} onValueChange={handleLinkedChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a service or package" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        {services.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Services</SelectLabel>
-                            {services.map(s => (
-                              <SelectItem key={s.id} value={`service:${s.id}`} className="text-slate-900">
-                                {s.service_name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                        {packages.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Packages</SelectLabel>
-                            {packages.map(p => (
-                              <SelectItem key={p.id} value={`package:${p.id}`} className="text-slate-900">
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="service_frequency">Service Frequency (Optional)</Label>
-                    <Select
-                      value={formData.service_frequency || undefined}
-                      onValueChange={(value) => setFormData({ ...formData, service_frequency: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select frequency..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        {SERVICE_FREQUENCY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option} className="text-slate-900">{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="start_date">Start Date</Label>
-                      <Input
-                        id="start_date"
-                        type="date"
-                        value={formData.start_date || ''}
-                        onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="due_date">Due Date</Label>
-                      <Input
-                        id="due_date"
-                        type="date"
-                        value={formData.due_date || ''}
-                        onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                      />
-                    </div>
+                    <Label htmlFor="due_date">Due Date</Label>
+                    <Input
+                      id="due_date"
+                      type="date"
+                      value={formData.due_date || ''}
+                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    />
                   </div>
 
                   <div>

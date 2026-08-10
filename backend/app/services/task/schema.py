@@ -15,6 +15,8 @@ FIELDS = {
     "due_date": S,
     "start_date": S,
     "estimated_hours": N,
+    "actual_hours": N,
+    "completed_date": S,
     "tags": J,
 }
 REQUIRED = []

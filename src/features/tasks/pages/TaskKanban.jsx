@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/apiClient';
 import KanbanColumn from '@/features/tasks/components/kanban/KanbanColumn';
 import TaskFormModal from '@/features/tasks/components/TaskFormModal';
+import TaskStatusUpdateModal from '@/features/tasks/components/TaskStatusUpdateModal';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +15,7 @@ export default function TaskKanban() {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [statusUpdateTask, setStatusUpdateTask] = useState(null);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
@@ -55,6 +57,13 @@ export default function TaskKanban() {
   };
 
   const handleTaskClick = (task) => {
+    // A plain click opens the focused status/history modal; dragging (the
+    // more common way to change status on this board) is unaffected.
+    setStatusUpdateTask(task);
+  };
+
+  const handleFullEdit = (task) => {
+    setStatusUpdateTask(null);
     setSelectedTask(task);
     setIsFormOpen(true);
   };
@@ -121,10 +130,21 @@ export default function TaskKanban() {
         </DragDropContext>
       </div>
 
-      {/* Task Form Modal */}
+      {/* Focused status-update modal — the default click target */}
+      {statusUpdateTask && (
+        <TaskStatusUpdateModal
+          task={statusUpdateTask}
+          currentUser={user}
+          onClose={() => setStatusUpdateTask(null)}
+          onFullEdit={handleFullEdit}
+        />
+      )}
+
+      {/* Full create/edit form — "New Task" and "Full Edit" */}
       {isFormOpen && (
         <TaskFormModal
           task={selectedTask}
+          currentUser={user}
           onClose={() => {
             setIsFormOpen(false);
             setSelectedTask(null);

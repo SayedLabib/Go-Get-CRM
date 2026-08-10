@@ -18,6 +18,7 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedFiling, setSelectedFiling] = useState(null);
@@ -71,6 +72,21 @@ export default function Invoices() {
       setShowPaymentDialog(false);
       setSelectedInvoice(null);
       toast.success('Payment recorded successfully');
+    }
+  });
+
+  const viewInvoiceMutation = useMutation({
+    mutationFn: (invoice) => api.functions.invoke('generateInvoicePDF', { invoice_id: invoice.id }),
+    onSuccess: (response) => {
+      if (response?.data?.pdfUrl) {
+        // Opens in a new tab rather than forcing a download — the browser's
+        // own PDF viewer lets them review it first and download from there
+        // if they actually need the file.
+        window.open(response.data.pdfUrl, '_blank');
+      }
+    },
+    onError: (error) => {
+      toast.error('Failed to generate invoice PDF: ' + error.message);
     }
   });
 
@@ -258,6 +274,9 @@ export default function Invoices() {
               invoice={invoice}
               client={clients.find(c => c.id === invoice.client_id)}
               onRecordPayment={handleRecordPayment}
+              onView={(inv) => viewInvoiceMutation.mutate(inv)}
+              onEdit={(inv) => setEditingInvoice(inv)}
+              viewing={viewInvoiceMutation.isPending && viewInvoiceMutation.variables?.id === invoice.id}
             />
           ))}
         </div>
@@ -324,6 +343,23 @@ export default function Invoices() {
               />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={!!editingInvoice} onOpenChange={(open) => !open && setEditingInvoice(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Invoice</DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <InvoiceGenerator
+              invoice={editingInvoice}
+              clientId={editingInvoice.client_id}
+              serviceFilingId={editingInvoice.service_filing_id}
+              onSuccess={() => setEditingInvoice(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

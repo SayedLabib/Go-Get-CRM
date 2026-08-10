@@ -1,25 +1,24 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/apiClient';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  FileText,
-  Download,
   Eye,
   Trash2,
-  CheckCircle,
-  Clock,
-  Archive
+  CheckCircle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+const STATUS_OPTIONS = ['Pending Review', 'Reviewed', 'Processed', 'Archived'];
 
 const statusColors = {
-  'Pending Review': 'bg-yellow/10 text-yellow-dark border-yellow/20',
-  'Reviewed': 'bg-blue-500/10 text-blue-700 border-blue-500/20',
-  'Processed': 'bg-green-500/10 text-green-700 border-green-500/20',
-  'Archived': 'bg-gray-500/10 text-gray-700 border-gray-500/20'
+  'Pending Review': 'text-yellow-dark border-yellow/20 bg-yellow/10',
+  'Reviewed': 'text-blue-700 border-blue-500/20 bg-blue-500/10',
+  'Processed': 'text-green-700 border-green-500/20 bg-green-500/10',
+  'Archived': 'text-gray-700 border-gray-500/20 bg-gray-500/10'
 };
 
 // Category is the Document Types master list's real, admin-editable
@@ -38,9 +37,22 @@ const categoryIcons = {
 };
 
 export default function DocumentCard({ document: doc, clientName, onView, onDelete }) {
+  const queryClient = useQueryClient();
   const { data: documentTypes = [] } = useQuery({
     queryKey: ['documentTypes'],
     queryFn: () => api.entities.DocumentType.list(),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status) => api.entities.Document.update(doc.id, { status }),
+    onSuccess: () => {
+      // Documents lists are fetched under a few different scoped keys
+      // across the app (['documents'], ['documents', clientId]) — matching
+      // on the shared prefix refreshes whichever list this card is in.
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'documents' });
+      toast.success('Document status updated');
+    },
+    onError: (error) => toast.error(error.message || 'Failed to update status'),
   });
   const categoryByName = documentTypes.reduce((map, dt) => {
     map[dt.name] = dt.category || 'Other';
@@ -117,10 +129,21 @@ export default function DocumentCard({ document: doc, clientName, onView, onDele
             </div>
           </div>
 
-          {/* Status Badge */}
-          <Badge variant="secondary" className={`${statusColors[doc.status]} border flex-shrink-0`}>
-            {doc.status}
-          </Badge>
+          {/* Status — one-click change, no separate edit mode */}
+          <Select value={doc.status} onValueChange={(status) => statusMutation.mutate(status)}>
+            <SelectTrigger
+              className={`${statusColors[doc.status] || ''} border h-7 w-auto text-xs font-medium flex-shrink-0 px-2 gap-1`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              {STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status} className="text-slate-900 text-xs">
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Description */}
@@ -140,20 +163,6 @@ export default function DocumentCard({ document: doc, clientName, onView, onDele
           >
             <Eye className="w-3 h-3" />
             Preview
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = doc.file_url;
-              link.download = doc.document_name;
-              link.click();
-            }}
-            className="flex-1 gap-1"
-          >
-            <Download className="w-3 h-3" />
-            Download
           </Button>
           <Button
             size="sm"

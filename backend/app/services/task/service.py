@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 # The two `_`-prefixed keys are the optional "was the client emailed" marker
 # TaskFormModal sends alongside a Complete status change — transient, never
 # persisted as-is (popped into ctx below before apply_update ever sees them).
-TASK_SELF_EDIT_FIELDS = {"status", "completed_date", "_client_emailed", "_client_emailed_note"}
+# completed_date is deliberately NOT in this set — after_update below derives
+# it itself from the status transition, so it's never something a client
+# needs to (or can) set directly.
+TASK_SELF_EDIT_FIELDS = {"status", "actual_hours", "_client_emailed", "_client_emailed_note"}
 
 
 def scope_filter(model, user):
@@ -42,6 +45,7 @@ def filter_update_body(user, body, ctx):
 def snapshot_before_update(obj):
     return {
         "was_completed": getattr(obj, "status", None) == "Complete",
+        "old_status": getattr(obj, "status", None),
         "old_assigned_to": getattr(obj, "assigned_to", None),
     }
 
@@ -93,11 +97,48 @@ async def after_create(db, user, is_client, obj):
 
 async def after_update(db, user, obj, snapshot, body, ctx):
     was_completed = snapshot["was_completed"]
+    old_status = snapshot["old_status"]
     old_assigned_to = snapshot["old_assigned_to"]
     client_emailed_flag = ctx.get("client_emailed_flag")
     client_emailed_note = ctx.get("client_emailed_note")
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    if not was_completed and obj.status == "Complete":
+    is_completing_now = not was_completed and obj.status == "Complete"
+    is_reopening = was_completed and obj.status != "Complete"
+
+    # completed_date and the status-history trail are both derived here,
+    # server-side, regardless of what the client sent — every completion
+    # path (Kanban drag, quick-status buttons, the full task form) goes
+    # through this same PATCH endpoint, so this is the one place that can
+    # guarantee they're always kept correct.
+    if obj.status != old_status or (is_completing_now and client_emailed_flag):
+        extra = dict(obj.extra or {})
+        if obj.status != old_status:
+            history = list(extra.get("status_history") or [])
+            history.append({"from": old_status, "to": obj.status, "at": now_iso, "by": user.email})
+            extra["status_history"] = history[-30:]
+        if is_completing_now:
+            obj.completed_date = datetime.date.today().isoformat()
+        elif is_reopening:
+            obj.completed_date = None
+        if is_completing_now and client_emailed_flag:
+            # Quick-badge stamp on the task itself so task lists don't need
+            # to cross-reference Communication just to show an "Emailed"
+            # indicator — the real Communication row is created below.
+            extra["client_emailed"] = True
+            extra["client_emailed_at"] = now_iso
+        obj.extra = extra
+        try:
+            await db.commit()
+            # Re-sync obj after this second commit — SQLAlchemy expires its
+            # attributes on commit by default, and the caller's final
+            # serialize(obj) would otherwise try to lazily reload them
+            # outside of an awaited context and 500.
+            await db.refresh(obj)
+        except Exception:
+            logger.exception("Failed to persist status history/completed_date for task %s", obj.id)
+
+    if is_completing_now:
         # Best-effort, same guarantee as the create-time notifications above.
         try:
             await notify_firm(
@@ -135,40 +176,28 @@ async def after_update(db, user, obj, snapshot, body, ctx):
                 )
             except Exception:
                 logger.exception("Failed to log task-completed activity for task %s", obj.id)
-        if client_emailed_flag:
+        if client_emailed_flag and obj.client_id:
             # Best-effort: a real Communication row so this shows up in the
-            # client's own Comms thread, plus a quick-badge stamp on the
-            # task itself so task lists don't need to cross-reference
-            # Communication just to show an "Emailed" indicator.
+            # client's own Comms thread (the extra.client_emailed badge was
+            # already stamped above, alongside status_history/completed_date).
             try:
-                now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                if obj.client_id:
-                    Communication = MODELS["Communication"]
-                    db.add(
-                        Communication(
-                            client_id=obj.client_id,
-                            communication_type="Email",
-                            subject=f"Re: {obj.title}",
-                            notes=client_emailed_note or f"Client emailed regarding completed task: {obj.title}",
-                            communication_date=now_iso,
-                            author_email=user.email,
-                            sender_type="staff",
-                            created_by=user.email,
-                            extra={},
-                        )
+                Communication = MODELS["Communication"]
+                db.add(
+                    Communication(
+                        client_id=obj.client_id,
+                        communication_type="Email",
+                        subject=f"Re: {obj.title}",
+                        notes=client_emailed_note or f"Client emailed regarding completed task: {obj.title}",
+                        communication_date=now_iso,
+                        author_email=user.email,
+                        sender_type="staff",
+                        created_by=user.email,
+                        extra={},
                     )
-                extra = dict(obj.extra or {})
-                extra["client_emailed"] = True
-                extra["client_emailed_at"] = now_iso
-                obj.extra = extra
+                )
                 await db.commit()
-                # Re-sync obj after this second commit — SQLAlchemy expires
-                # its attributes on commit by default, and the caller's
-                # final serialize(obj) would otherwise try to lazily reload
-                # them outside of an awaited context and 500.
-                await db.refresh(obj)
             except Exception:
-                logger.exception("Failed to record client-emailed status for completed task %s", obj.id)
+                logger.exception("Failed to record client-emailed Communication for completed task %s", obj.id)
 
     if obj.assigned_to and obj.assigned_to != old_assigned_to and obj.assigned_to != user.email:
         try:
